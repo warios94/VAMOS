@@ -51,42 +51,25 @@ if __name__ == "__main__":
 
     predictions = []
     if engine.model_win:
-        # --- V118: FIX ESTRAZIONE DATI LIVE ---
-        for match in matches:
+        for match_data in matches:
             try:
-                p1_data = match.get('player1', {})
-                p2_data = match.get('player2', {})
-                
-                p1_name = p1_data.get('name')
-                p2_name = p2_data.get('name')
-                p1_id = p1_data.get('id')
-                p2_id = p2_data.get('id')
+                p1_data = match_data.get('player1', {})
+                p2_data = match_data.get('player2', {})
 
-                if not p1_id or not p2_id:
-                    print(f"⚠️ Salto match: ID mancanti per {p1_name} vs {p2_name}")
+                if not p1_data.get('id') or not p2_data.get('id'):
                     continue
 
-                print(f"🎾 Analizzo match reale: {p1_name} vs {p2_name}")
-
-                p1_perf = client.get_player_perf_breakdown(p1_id, tour='atp')
-                p2_perf = client.get_player_perf_breakdown(p2_id, tour='atp')
-                
-                p1_skills = client.get_player_skills(p1_id, tour='atp')
-                p2_skills = client.get_player_skills(p2_id, tour='atp')
+                print(f"🎾 Analizzo match reale: {p1_data.get('name')} vs {p2_data.get('name')}")
 
                 prediction = engine.predict(
                     p1_data=p1_data, 
                     p2_data=p2_data, 
-                    p1_stats=p1_perf,
-                    p2_stats=p2_perf,
-                    p1_skills=p1_skills,
-                    p2_skills=p2_skills,
                     is_slam=True
                 )
                 predictions.append({'prediction': prediction})
                 
                 if prediction:
-                    print(f"📊 RISULTATO: {p1_name} vs {p2_name} -> {prediction.get('final_win_prob', 0):.2%}")
+                    print(f"📊 RISULTATO: {p1_data.get('name')} vs {p2_data.get('name')} -> {prediction.get('final_win_prob', 0):.2%}")
 
             except Exception as e:
                 print(f"❌ Errore nel ciclo match: {e}")
@@ -95,5 +78,5 @@ if __name__ == "__main__":
 
     if predictions:
         results_table = format_predictions(predictions)
-        print("\n--- PREDIZIONI V118 ---")
+        print("\n--- PREDIZIONI V129 ---")
         print(results_table)

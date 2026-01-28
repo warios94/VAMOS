@@ -19,7 +19,6 @@ class RapidTennisClient:
         self.session = requests.Session()
 
     def _make_request(self, endpoint):
-        """Helper per effettuare richieste API con gestione errori."""
         try:
             time.sleep(random.uniform(1, 2))
             response = self.session.get(f"{self.url_base}{endpoint}", headers=self.headers, timeout=20)
@@ -30,31 +29,47 @@ class RapidTennisClient:
             return {}
 
     def get_fixtures_by_date(self, date_str, tour='atp'):
-        """
-        V117: Corregge la chiave di estrazione dati da 'results' a 'data'.
-        """
         endpoint = f"/{tour}/fixtures/{date_str}"
-        # --- V117: FIX CHIAVE JSON ---
         return self._make_request(endpoint).get('data', [])
 
     def get_player_perf_breakdown(self, player_id, tour='atp'):
         endpoint = f"/{tour}/player/perf-breakdown/{player_id}"
         return self._make_request(endpoint).get('results', [])
 
-    def get_player_skills(self, player_id, tour='atp'):
-        endpoint = f"/{tour}/player/match-stats/{player_id}"
-        data = self._make_request(endpoint).get('data', {})
+    def get_player_titles(self, player_id, tour='atp'):
+        endpoint = f"/{tour}/player/titles/{player_id}"
+        return self._make_request(endpoint).get('data', [])
         
-        svc = data.get('serviceStats', {})
-        rtn = data.get('rtnStats', {})
-        
+    def get_player_details(self, player_id, tour='atp'):
+        """Recupera i dettagli di un giocatore (ranking, punti, etc.)."""
+        endpoint = f"/{tour}/player/{player_id}"
+        return self._make_request(endpoint).get('data', {})
+
+    def get_player_profile(self, player_id, tour='atp', surface_name="Hard"):
+        """V128: Aggrega i dati di un giocatore in un unico profilo."""
+        # 1. Recupera Performance (Surface Win)
+        perf = self.get_player_perf_breakdown(player_id, tour) 
+        surface_data = next((item for item in perf if item.get('surface') == surface_name), {})
+        surface_win = float(surface_data.get('win_pct', 60)) / 100
+
+        # 2. Recupera Killer Instinct (Titoli)
+        titles = self.get_player_titles(player_id, tour)
+        total_won = sum(int(t.get('titlesWon', 0)) for t in titles)
+        total_lost = sum(int(t.get('titlesLost', 0)) for t in titles)
+        killer_instinct = total_won / (total_won + total_lost) if (total_won + total_lost) > 0 else 0.5
+
+        # 3. Recupera Ranking (Points)
+        details = self.get_player_details(player_id, tour)
+        points = int(details.get('points', 0))
+
         return {
-            'ace_df_ratio': svc.get('acesGm', 0) / (svc.get('doubleFaultsGm', 1) or 1),
-            'first_serve_win': svc.get('winningOnFirstServeGm', 0) / (svc.get('firstServeGm', 1) or 1),
-            'return_win': rtn.get('winningOnFirstServeGm', 0) / (rtn.get('firstServeOfGm', 1) or 1)
+            'surface_win': surface_win,
+            'killer_instinct': killer_instinct,
+            'points': points
         }
 
 if __name__ == '__main__':
     client = RapidTennisClient()
-    sinner_skills = client.get_player_skills(249137)
-    print(f"Sinner Skills: {sinner_skills}")
+    # Esempio Sinner
+    sinner_profile = client.get_player_profile(249137)
+    print(f"Sinner Profile: {sinner_profile}")
