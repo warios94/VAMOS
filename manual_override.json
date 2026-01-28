@@ -1,0 +1,32 @@
+{
+    "Alcaraz C.": {
+        "rolling_minutes": 180,
+        "rest_ratio": 0.8,
+        "live_data_available": true,
+        "manual_override": true
+    },
+    "Djokovic N.": {
+        "rolling_minutes": 190,
+        "rest_ratio": 0.7,
+        "live_data_available": true,
+        "manual_override": true
+    },
+    "De Minaur A.": {
+        "rolling_minutes": 240,
+        "rest_ratio": 0.5,
+        "live_data_available": true,
+        "manual_override": true
+    },
+    "Musetti L.": {
+        "rolling_minutes": 320,
+        "rest_ratio": 0.3,
+        "live_data_available": true,
+        "manual_override": true
+    },
+    "Shelton B.": {
+        "rolling_minutes": 290,
+        "rest_ratio": 0.4,
+        "live_data_available": true,
+        "manual_override": true
+    }
+}
