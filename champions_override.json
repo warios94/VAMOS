@@ -1,0 +1,26 @@
+{
+    "Jannik Sinner": {
+        "surface_win": 0.944,
+        "killer_instinct": 0.738,
+        "fatigue_sets": 13,
+        "ranking_points": 9100
+    },
+    "Novak Djokovic": {
+        "surface_win": 0.875,
+        "killer_instinct": 0.711,
+        "fatigue_sets": 17,
+        "ranking_points": 9855
+    },
+    "Carlos Alcaraz": {
+        "surface_win": 0.85,
+        "killer_instinct": 0.68,
+        "fatigue_sets": 15,
+        "ranking_points": 8855
+    },
+    "Alexander Zverev": {
+        "surface_win": 0.80,
+        "killer_instinct": 0.65,
+        "fatigue_sets": 16,
+        "ranking_points": 6595
+    }
+}

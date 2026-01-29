@@ -1,82 +1,74 @@
-
 from tabulate import tabulate
-import numpy as np
 from datetime import datetime
-import requests
 from core.engine import TennisEngine
 from api_client import RapidTennisClient
-import database_manager
+from player_vault import get_or_fetch_player # V163: Importa la nuova funzione
 from dotenv import load_dotenv
 import os
+import json
 
 def format_predictions(predictions):
-    headers = ["Player 1", "Player 2", "Final Winner", "FORM / FATIGUE", "SUGGESTION"]
+    headers = ["Player 1", "Player 2", "Final Winner"]
     table = []
-
-    for i, pred_data in enumerate(predictions):
-        if pred_data['prediction'] is None: continue
-        
-        pred = pred_data['prediction']
-        p1, p2, is_slam, final_win_prob, suggestion_override, p1_form, p2_form = pred.values()
-        
-        winner = p1 if final_win_prob > 0.5 else p2
-        winner_conf_val = final_win_prob if final_win_prob > 0.5 else (1-final_win_prob)
-        winner_conf_str = f"{winner} ({winner_conf_val:.2%})"
-        
-        form_str_p1 = f"RM:{p1_form.get('rolling_minutes', 0):.0f}"
-        form_str_p2 = f"RM:{p2_form.get('rolling_minutes', 0):.0f}"
-        form_str = f"{form_str_p1} vs {form_str_p2}"
-        
-        suggestion = suggestion_override if suggestion_override else "✅ FRESH"
-
-        table.append([p1, p2, winner_conf_str, form_str, suggestion])
-    
+    for pred in predictions:
+        if not pred: continue
+        p1 = pred['p1']
+        p2 = pred['p2']
+        winner = p1 if pred['final_win_prob'] > 0.5 else p2
+        win_prob = pred['final_win_prob'] if pred['final_win_prob'] > 0.5 else 1 - pred['final_win_prob']
+        table.append([p1, p2, f"{winner} ({win_prob:.2%})"])
     return tabulate(table, headers=headers, tablefmt="grid")
 
 if __name__ == "__main__":
     load_dotenv()
-    database_manager.init_db()
     engine = TennisEngine()
-    
     client = RapidTennisClient()
     
     target_date = "2026-01-30"
+    matches = []
     
     try:
+        print("📡 Tentativo di recupero fixtures live dall'API...")
         matches = client.get_fixtures_by_date(target_date, tour='atp')
-        print(f"DEBUG: L'API ha restituito {len(matches)} match totali.")
+        if not matches:
+            raise ValueError("L'API ha restituito una lista vuota.")
+        print(f"✅ {len(matches)} match live recuperati con successo.")
     except Exception as e:
-        print(f"❌ Errore durante l'acquisizione dei match: {e}")
-        matches = []
+        print(f"⚠️ Errore API ({e}). Attivo il paracadute: carico manual_fixtures.json.")
+        try:
+            with open('data/manual_fixtures.json', 'r') as f:
+                matches = json.load(f)
+            print(f"✅ {len(matches)} match caricati dal file di override.")
+        except FileNotFoundError:
+            print("❌ ERRORE CRITICO: File di override manual_fixtures.json non trovato.")
+            matches = []
 
     predictions = []
-    if engine.model_win:
-        for match_data in matches:
-            try:
-                p1_data = match_data.get('player1', {})
-                p2_data = match_data.get('player2', {})
+    for match_data in matches:
+        p1_id = match_data.get('player1', {}).get('id')
+        p2_id = match_data.get('player2', {}).get('id')
 
-                if not p1_data.get('id') or not p2_data.get('id'):
-                    continue
+        if not p1_id or not p2_id:
+            continue
+        
+        # --- V163: Logica "Lookup Blindato" ---
+        p1_profile = get_or_fetch_player(p1_id, client)
+        p2_profile = get_or_fetch_player(p2_id, client)
 
-                print(f"🎾 Analizzo match reale: {p1_data.get('name')} vs {p2_data.get('name')}")
-
-                prediction = engine.predict(
-                    p1_data=p1_data, 
-                    p2_data=p2_data, 
-                    is_slam=True
-                )
-                predictions.append({'prediction': prediction})
-                
-                if prediction:
-                    print(f"📊 RISULTATO: {p1_data.get('name')} vs {p2_data.get('name')} -> {prediction.get('final_win_prob', 0):.2%}")
-
-            except Exception as e:
-                print(f"❌ Errore nel ciclo match: {e}")
-    else:
-        print("❌ Modello non trovato. Esegui prima lo script di training.")
+        if not p1_profile or not p2_profile:
+            print(f"⚠️ Analisi saltata per match ID {match_data.get('id')}: dati giocatore insufficienti.")
+            continue
+            
+        # L'engine ora riceve i profili completi dal Vault
+        prediction = engine.predict(p1_profile, p2_profile)
+        predictions.append(prediction)
+        
+        if prediction:
+            print(f"📊 RISULTATO: {prediction.get('p1')} vs {prediction.get('p2')} -> {prediction.get('final_win_prob', 0):.2%}")
 
     if predictions:
         results_table = format_predictions(predictions)
-        print("\n--- PREDIZIONI V129 ---")
+        print("\n--- PREDIZIONI V163 ---")
         print(results_table)
+    else:
+        print("\nNessuna predizione generata.")

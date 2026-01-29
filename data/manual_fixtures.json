@@ -1,0 +1,20 @@
+[
+  {
+    "player1": {"id": 5992, "name": "Novak Djokovic"},
+    "player2": {"id": 47275, "name": "Jannik Sinner"},
+    "surface": "Hard",
+    "tournament": "Australian Open"
+  },
+  {
+    "player1": {"id": 68074, "name": "Carlos Alcaraz"},
+    "player2": {"id": 24008, "name": "Alexander Zverev"},
+    "surface": "Hard",
+    "tournament": "Australian Open"
+  },
+  {
+    "player1": {"id": 44595, "name": "Ugo Blanchet"},
+    "player2": {"id": 71221, "name": "Luca Nardi"},
+    "surface": "Hard",
+    "tournament": "Challenger"
+  }
+]

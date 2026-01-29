@@ -3,28 +3,54 @@ import os
 from dotenv import load_dotenv
 import time
 import random
+from datetime import datetime
+import logging
+import json
+
+# --- V164: Configurazione Log Professionale ---
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+logging.basicConfig(
+    filename='logs/api_intelligence.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+def log_api_call(url, status_code, response_body, headers):
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "url": url,
+        "status": status_code,
+        "headers_sent": {k: v for k, v in headers.items() if "key" not in k.lower()},
+        "response_preview": response_body[:500]
+    }
+    logging.debug(f"API_CALL_DATA: {json.dumps(log_entry)}")
 
 class RapidTennisClient:
     def __init__(self):
         load_dotenv()
-        api_key = os.getenv("RAPIDAPI_KEY")
-        if not api_key or "tua_chiave_qui" in api_key:
-            raise ValueError("Chiave RapidAPI non trovata o non configurata nel file .env")
+        self.api_key = os.getenv("RAPIDAPI_KEY")
+        if not self.api_key:
+            raise ValueError("Chiave RapidAPI non trovata nel file .env")
         
         self.url_base = "https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2"
         self.headers = {
             "x-rapidapi-host": "tennis-api-atp-wta-itf.p.rapidapi.com",
-            "x-rapidapi-key": api_key
+            "x-rapidapi-key": self.api_key
         }
         self.session = requests.Session()
 
     def _make_request(self, endpoint):
+        url = f"{self.url_base}{endpoint}"
         try:
-            time.sleep(random.uniform(1, 2))
-            response = self.session.get(f"{self.url_base}{endpoint}", headers=self.headers, timeout=20)
+            time.sleep(random.uniform(0.5, 1.5))
+            response = self.session.get(url, headers=self.headers, timeout=20)
+            # --- V164: Chiama il logger ---
+            log_api_call(url, response.status_code, response.text, self.headers)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
+            log_api_call(url, "ConnectionError", str(e), self.headers)
             print(f"❌ Errore API per endpoint {endpoint}: {e}")
             return {}
 
@@ -32,44 +58,6 @@ class RapidTennisClient:
         endpoint = f"/{tour}/fixtures/{date_str}"
         return self._make_request(endpoint).get('data', [])
 
-    def get_player_perf_breakdown(self, player_id, tour='atp'):
-        endpoint = f"/{tour}/player/perf-breakdown/{player_id}"
-        return self._make_request(endpoint).get('results', [])
-
-    def get_player_titles(self, player_id, tour='atp'):
-        endpoint = f"/{tour}/player/titles/{player_id}"
-        return self._make_request(endpoint).get('data', [])
-        
-    def get_player_details(self, player_id, tour='atp'):
-        """Recupera i dettagli di un giocatore (ranking, punti, etc.)."""
+    def get_player_profile(self, player_id, tour='atp'):
         endpoint = f"/{tour}/player/{player_id}"
         return self._make_request(endpoint).get('data', {})
-
-    def get_player_profile(self, player_id, tour='atp', surface_name="Hard"):
-        """V128: Aggrega i dati di un giocatore in un unico profilo."""
-        # 1. Recupera Performance (Surface Win)
-        perf = self.get_player_perf_breakdown(player_id, tour) 
-        surface_data = next((item for item in perf if item.get('surface') == surface_name), {})
-        surface_win = float(surface_data.get('win_pct', 60)) / 100
-
-        # 2. Recupera Killer Instinct (Titoli)
-        titles = self.get_player_titles(player_id, tour)
-        total_won = sum(int(t.get('titlesWon', 0)) for t in titles)
-        total_lost = sum(int(t.get('titlesLost', 0)) for t in titles)
-        killer_instinct = total_won / (total_won + total_lost) if (total_won + total_lost) > 0 else 0.5
-
-        # 3. Recupera Ranking (Points)
-        details = self.get_player_details(player_id, tour)
-        points = int(details.get('points', 0))
-
-        return {
-            'surface_win': surface_win,
-            'killer_instinct': killer_instinct,
-            'points': points
-        }
-
-if __name__ == '__main__':
-    client = RapidTennisClient()
-    # Esempio Sinner
-    sinner_profile = client.get_player_profile(249137)
-    print(f"Sinner Profile: {sinner_profile}")
